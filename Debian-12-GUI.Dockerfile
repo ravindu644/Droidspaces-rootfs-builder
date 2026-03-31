@@ -171,6 +171,22 @@ RUN locale-gen en_US.UTF-8 && \
     # Remove default user if it exists
     deluser --remove-home debian || true
 
+# Fix DHCP in the container
+RUN mkdir -p /etc/systemd/network && \
+    cat <<'EOF' > /etc/systemd/network/10-eth-dhcp.network
+[Match]
+Name=eth*
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+
+[DHCPv4]
+UseDNS=yes
+UseDomains=yes
+RouteMetric=100
+EOF
+
 # Apply Android compatibility fixes (Systemd and Udev)
 RUN <<EOF
 # Fix internet (DNS configuration)
