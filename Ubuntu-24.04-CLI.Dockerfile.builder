@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Dockerfile.builder
 # Stage 1: Build and customize the rootfs for development
 FROM --platform=linux/arm64 ubuntu:24.04 AS customizer
@@ -26,7 +25,6 @@ RUN apt-get update && \
     gnupg \
     # Add PPAs for fastfetch and Firefox ESR
     && add-apt-repository ppa:zhangsongcui3371/fastfetch -y && \
-    add-apt-repository ppa:mozillateam/ppa -y && \
     # Update package lists again after adding PPAs
     apt-get update && \
     # Install all packages in a single command
@@ -45,10 +43,7 @@ RUN apt-get update && \
     locales \
     bash-completion \
     udev \
-    systemd-resolved \
-    iptables \
-    kmod \
-    procps \
+    dbus \
     # Compression tools
     zip \
     unzip \
@@ -59,7 +54,6 @@ RUN apt-get update && \
     gzip \
     # System tools
     htop \
-    btop \
     vim \
     nano \
     git \
@@ -73,11 +67,12 @@ RUN apt-get update && \
     pciutils \
     lsof \
     psmisc \
+    procps \
+    fastfetch \
     # Wireless networking tools for hotspot functionality
     iw \
     hostapd \
     isc-dhcp-server \
-    kea-dhcp4-server \
     # C/C++ Development
     build-essential \
     gcc \
@@ -90,7 +85,6 @@ RUN apt-get update && \
     libtool \
     pkg-config \
     # File system tools
-    gparted \
     dosfstools \
     exfatprogs \
     btrfs-progs \
@@ -115,75 +109,6 @@ RUN apt-get update && \
     valgrind \
     strace \
     ltrace \
-    # XFCE Desktop Environment and essential tools
-    xfce4 \
-    desktop-base \
-    xfce4-terminal \
-    xfce4-session \
-    xscreensaver \
-    xfce4-goodies \
-    xubuntu-wallpapers \
-    xfce4-taskmanager \
-    mousepad \
-    galculator \
-    nemo-fileroller \
-    ristretto \
-    xfce4-screenshooter \
-    catfish \
-    mugshot \
-    xcursor-themes \
-    dmz-cursor-theme \
-    xfce4-clipman-plugin \
-    xinit \
-    xorg \
-    dbus-x11 \
-    dbus \
-    at-spi2-core \
-    tumbler \
-    fonts-lklug-sinhala \
-    # Icon themes
-    adwaita-icon-theme-full \
-    hicolor-icon-theme \
-    gnome-icon-theme \
-    tango-icon-theme \
-    # GTK theme engines and popular themes
-    gtk2-engines-murrine \
-    gtk2-engines-pixbuf \
-    arc-theme \
-    numix-gtk-theme \
-    materia-gtk-theme \
-    papirus-icon-theme \
-    greybird-gtk-theme \
-    # Essential fonts for GUI rendering
-    fonts-dejavu-core \
-    fonts-liberation \
-    fonts-liberation2 \
-    fonts-noto-core \
-    fonts-noto-ui-core \
-    fonts-ubuntu \
-    # File manager and GUI utilities
-    thunar \
-    thunar-volman \
-    thunar-archive-plugin \
-    thunar-media-tags-plugin \
-    gvfs \
-    gvfs-backends \
-    gvfs-fuse \
-    x11-xserver-utils \
-    x11-utils \
-    xclip \
-    xsel \
-    xfwm4 \
-    xfconf \
-    zenity \
-    notification-daemon \
-    # User directory management
-    xdg-user-dirs \
-    # Packages from PPAs
-    fastfetch \
-    firefox-esr \
-    # PolicyKit for permissions
-    policykit-1 \
     && apt-get purge -y gdm3 gnome-session gnome-shell whoopsie && \
     apt-get autoremove -y
 
@@ -257,13 +182,6 @@ EOT
 rm -f /etc/systemd/system/systemd-udevd.service
 ln -sf /etc/systemd/system/safe-udev-trigger.service /etc/systemd/system/multi-user.target.wants/safe-udev-trigger.service
 EOF
-
-# Update icon and font caches in a final setup layer
-RUN gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true && \
-    gtk-update-icon-cache -f /usr/share/icons/Adwaita 2>/dev/null || true && \
-    gtk-update-icon-cache -f /usr/share/icons/Papirus 2>/dev/null || true && \
-    gtk-update-icon-cache -f /usr/share/icons/Tango 2>/dev/null || true && \
-    fc-cache -fv
 
 # Purge and reinstall qemu and binfmt in the exact order specified
 RUN apt-get purge -y qemu-* binfmt-support && \
