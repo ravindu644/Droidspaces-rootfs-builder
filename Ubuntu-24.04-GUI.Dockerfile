@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
-# Dockerfile.builder
+# Dockerfile (GUI)
 # Stage 1: Build and customize the rootfs for development
-FROM --platform=linux/arm64 ubuntu:24.04 AS customizer
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/arm64} ubuntu:24.04 AS customizer
 
 ENV DEBIAN_FRONTEND=noninteractive
 

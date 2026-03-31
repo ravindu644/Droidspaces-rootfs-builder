@@ -11,7 +11,7 @@ while getopts "i:v:" opt; do
   case $opt in
     i) DOCKERFILE="$OPTARG" ;;
     v) VERSION="$OPTARG" ;;
-    *) echo "Usage: $0 -i <template.Dockerfile.builder> [-v <version>]" ; exit 1 ;;
+    *) echo "Usage: $0 -i <template.Dockerfile> [-v <version>]" ; exit 1 ;;
   esac
 done
 
@@ -25,8 +25,8 @@ if [ ! -f "$DOCKERFILE" ]; then
     exit 1
 fi
 
-# Extract prefix (e.g., Ubuntu-24.04 from Ubuntu-24.04.Dockerfile.builder)
-PREFIX=$(echo "$DOCKERFILE" | sed 's/\.Dockerfile\.builder//')
+# Extract prefix (e.g., Ubuntu-24.04 from Ubuntu-24.04.Dockerfile)
+PREFIX=$(echo "$DOCKERFILE" | sed 's/\.Dockerfile//')
 
 echo "========================================================="
 echo " Starting Build: $PREFIX"
@@ -49,6 +49,8 @@ fi
 
 # Bootstrap to ensure it's ready
 docker buildx inspect --bootstrap || echo "Warning: Bootstrap failed, attempting to continue..."
+
+set -e
 
 # 3. Core Build Process
 TEMP_TAR="custom-${PREFIX}-rootfs.tar"

@@ -1,6 +1,7 @@
-# Dockerfile.builder
-# Stage 1: Build and customize the rootfs for development (GUI)
-FROM --platform=linux/arm64 debian:bookworm AS customizer
+# Dockerfile (CLI)
+# Stage 1: Build and customize the rootfs for development
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/arm64} ubuntu:24.04 AS customizer
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -16,8 +17,18 @@ COPY scripts/bashrc.sh /etc/profile.d/ds-aliases.sh
 # Make scripts executable
 RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh
 
-# Main installation layer for everything (Minimal + CLI + GUI)
+# This is the main installation layer. All package installations, PPA additions,
+# and setup are done here to minimize layers and maximize build speed.
 RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    # Essentials for adding PPAs
+    software-properties-common \
+    gnupg \
+    # Add PPAs for fastfetch and Firefox ESR
+    && add-apt-repository ppa:zhangsongcui3371/fastfetch -y && \
+    # Update package lists again after adding PPAs
+    apt-get update && \
+    # Install all packages in a single command
     apt-get install -y --no-install-recommends \
     # Core utilities
     bash \
@@ -34,23 +45,6 @@ RUN apt-get update && \
     bash-completion \
     udev \
     dbus \
-    # Basic tools
-    git \
-    nano \
-    sudo \
-    procps \
-    # Networking & SSH
-    openssh-server \
-    net-tools \
-    iptables \
-    iputils-ping \
-    iproute2 \
-    dnsutils \
-    systemd-resolved \
-    # Wireless networking tools
-    iw \
-    hostapd \
-    isc-dhcp-server \
     # Compression tools
     zip \
     unzip \
@@ -59,7 +53,29 @@ RUN apt-get update && \
     xz-utils \
     tar \
     gzip \
-    # Development tools
+    # System tools
+    htop \
+    vim \
+    nano \
+    git \
+    sudo \
+    openssh-server \
+    net-tools \
+    iptables \
+    iputils-ping \
+    iproute2 \
+    dnsutils \
+    usbutils \
+    pciutils \
+    lsof \
+    psmisc \
+    procps \
+    fastfetch \
+    # Wireless networking tools for hotspot functionality
+    iw \
+    hostapd \
+    isc-dhcp-server \
+    # C/C++ Development
     build-essential \
     gcc \
     g++ \
@@ -70,11 +86,6 @@ RUN apt-get update && \
     automake \
     libtool \
     pkg-config \
-    # Python Development
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
     # File system tools
     dosfstools \
     exfatprogs \
@@ -88,68 +99,20 @@ RUN apt-get update && \
     nilfs-tools \
     udftools \
     f2fs-tools \
-    # XFCE Desktop Environment and essential tools
-    xfce4 \
-    desktop-base \
-    xfce4-terminal \
-    xfce4-session \
-    xfce4-goodies \
-    xfce4-taskmanager \
-    mousepad \
-    galculator \
-    nemo-fileroller \
-    ristretto \
-    xfce4-screenshooter \
-    catfish \
-    xcursor-themes \
-    xfce4-clipman-plugin \
-    xinit \
-    xorg \
-    dbus-x11 \
-    at-spi2-core \
-    tumbler \
-    # Icon themes
-    adwaita-icon-theme-full \
-    hicolor-icon-theme \
-    gnome-icon-theme \
-    tango-icon-theme \
-    # GTK theme engines and popular themes
-    gtk2-engines-murrine \
-    gtk2-engines-pixbuf \
-    arc-theme \
-    numix-gtk-theme \
-    materia-gtk-theme \
-    papirus-icon-theme \
-    greybird-gtk-theme \
-    # Essential fonts for GUI rendering
-    fonts-dejavu-core \
-    fonts-liberation \
-    fonts-liberation2 \
-    fonts-noto-core \
-    fonts-noto-ui-core \
-    # File manager and GUI utilities
-    thunar \
-    thunar-volman \
-    thunar-archive-plugin \
-    thunar-media-tags-plugin \
-    gvfs \
-    gvfs-backends \
-    gvfs-fuse \
-    x11-xserver-utils \
-    x11-utils \
-    xclip \
-    xsel \
-    xfwm4 \
-    xfconf \
-    zenity \
-    notification-daemon \
-    # Browser (Firefox ESR)
-    firefox-esr \
-    # User directory management
-    xdg-user-dirs \
-    # PolicyKit for permissions
-    policykit-1 \
-    && apt-get autoremove -y
+    # Python Development
+    python3 \
+    python3-pip \
+    python3-dev \
+    python3-venv \
+    python-is-python3 \
+    # Additional dev tools
+    clang \
+    llvm \
+    valgrind \
+    strace \
+    ltrace \
+    && apt-get purge -y gdm3 gnome-session gnome-shell whoopsie && \
+    apt-get autoremove -y
 
 # Install Docker and set iptables-legacy
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
@@ -157,7 +120,7 @@ RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
     curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh && \
     rm get-docker.sh
 
-# Configure locales, environment, SSH, and user setup
+# Configure locales, environment, SSH, Docker, and user setup in a single layer
 RUN locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 && \
     # Set global environment variables
@@ -166,10 +129,10 @@ RUN locale-gen en_US.UTF-8 && \
     mkdir -p /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # Initialize default user directories for GUI apps
+    # Create default user directories
     xdg-user-dirs-update && \
-    # Remove default user if it exists
-    deluser --remove-home debian || true
+    # Remove default ubuntu user if it exists
+    deluser --remove-home ubuntu || true
 
 # Apply Android compatibility fixes (Systemd and Udev)
 RUN <<EOF
@@ -222,9 +185,19 @@ rm -f /etc/systemd/system/systemd-udevd.service
 ln -sf /etc/systemd/system/safe-udev-trigger.service /etc/systemd/system/multi-user.target.wants/safe-udev-trigger.service
 EOF
 
-# Install QEMU and binfmt
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends qemu-user-static binfmt-support
+# Purge and reinstall qemu and binfmt in the exact order specified
+RUN apt-get purge -y qemu-* binfmt-support && \
+    apt-get autoremove -y && \
+    apt-get autoclean && \
+    # Remove any leftover config files
+    rm -rf /var/lib/binfmts/* && \
+    rm -rf /etc/binfmt.d/* && \
+    rm -rf /usr/lib/binfmt.d/qemu-* && \
+    # Update package lists
+    apt-get update && \
+    # Install ONLY these packages (in this specific order)
+    apt-get install -y qemu-user-static && \
+    apt-get install -y binfmt-support
 
 # Final cleanup of APT cache
 RUN apt-get clean && \

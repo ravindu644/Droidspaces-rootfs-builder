@@ -1,11 +1,13 @@
-# Dockerfile.builder
-# Stage 1: Build and customize the rootfs for development
-FROM --platform=linux/arm64 ubuntu:24.04 AS customizer
+# Dockerfile (Minimal)
+# Stage 1: Build and customize the rootfs for development (Minimal)
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/arm64} debian:bookworm AS customizer
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update base system
-RUN apt-get update && apt-get upgrade -y
+# Update base system and enable non-free/contrib
+RUN (sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list 2>/dev/null || sed -i 's/Components: main/Components: main contrib non-free/g' /etc/apt/sources.list.d/debian.sources) && \
+    apt-get update && apt-get upgrade -y
 
 # Copy custom scripts first
 COPY scripts/download-firmware /usr/local/bin/
@@ -16,18 +18,8 @@ COPY scripts/bashrc.sh /etc/profile.d/ds-aliases.sh
 # Make scripts executable
 RUN chmod +x /usr/local/bin/download-firmware /etc/profile.d/ds-aliases.sh
 
-# This is the main installation layer. All package installations, PPA additions,
-# and setup are done here to minimize layers and maximize build speed.
+# Install Minimal package set
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    # Essentials for adding PPAs
-    software-properties-common \
-    gnupg \
-    # Add PPAs for fastfetch and Firefox ESR
-    && add-apt-repository ppa:zhangsongcui3371/fastfetch -y && \
-    # Update package lists again after adding PPAs
-    apt-get update && \
-    # Install all packages in a single command
     apt-get install -y --no-install-recommends \
     # Core utilities
     bash \
@@ -44,82 +36,28 @@ RUN apt-get update && \
     bash-completion \
     udev \
     dbus \
-    # Compression tools
-    zip \
-    unzip \
-    p7zip-full \
-    bzip2 \
-    xz-utils \
-    tar \
-    gzip \
-    # System tools
-    htop \
-    vim \
-    nano \
+    # Basic tools requested by user
     git \
+    nano \
     sudo \
+    # Networking & SSH
     openssh-server \
     net-tools \
     iptables \
     iputils-ping \
     iproute2 \
     dnsutils \
-    usbutils \
-    pciutils \
-    lsof \
-    psmisc \
+    # Systemd-resolved is separate in Debian
+    systemd-resolved \
+    # Procps for system monitoring
     procps \
-    fastfetch \
-    # Wireless networking tools for hotspot functionality
-    iw \
-    hostapd \
-    isc-dhcp-server \
-    # C/C++ Development
-    build-essential \
-    gcc \
-    g++ \
-    gdb \
-    make \
-    cmake \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    # File system tools
-    dosfstools \
-    exfatprogs \
-    btrfs-progs \
-    ntfs-3g \
-    xfsprogs \
-    jfsutils \
-    hfsprogs \
-    reiserfsprogs \
-    cryptsetup \
-    nilfs-tools \
-    udftools \
-    f2fs-tools \
-    # Python Development
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
-    python-is-python3 \
-    # Additional dev tools
-    clang \
-    llvm \
-    valgrind \
-    strace \
-    ltrace \
-    && apt-get purge -y gdm3 gnome-session gnome-shell whoopsie && \
-    apt-get autoremove -y
+    && apt-get autoremove -y
 
-# Install Docker and set iptables-legacy
+# Configure iptables-legacy (MANDATORY for Android compatibility)
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy && \
-    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy && \
-    curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh && \
-    rm get-docker.sh
+    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
-# Configure locales, environment, SSH, Docker, and user setup in a single layer
+# Configure locales, environment, SSH, and user setup
 RUN locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 && \
     # Set global environment variables
@@ -128,10 +66,8 @@ RUN locale-gen en_US.UTF-8 && \
     mkdir -p /var/run/sshd && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    # Create default user directories
-    xdg-user-dirs-update && \
-    # Remove default ubuntu user if it exists
-    deluser --remove-home ubuntu || true
+    # Remove default user if it exists (Debian sometimes has 'debian' or similar in cloud images, but base is empty)
+    deluser --remove-home debian || true
 
 # Apply Android compatibility fixes (Systemd and Udev)
 RUN <<EOF
@@ -184,19 +120,9 @@ rm -f /etc/systemd/system/systemd-udevd.service
 ln -sf /etc/systemd/system/safe-udev-trigger.service /etc/systemd/system/multi-user.target.wants/safe-udev-trigger.service
 EOF
 
-# Purge and reinstall qemu and binfmt in the exact order specified
-RUN apt-get purge -y qemu-* binfmt-support && \
-    apt-get autoremove -y && \
-    apt-get autoclean && \
-    # Remove any leftover config files
-    rm -rf /var/lib/binfmts/* && \
-    rm -rf /etc/binfmt.d/* && \
-    rm -rf /usr/lib/binfmt.d/qemu-* && \
-    # Update package lists
-    apt-get update && \
-    # Install ONLY these packages (in this specific order)
-    apt-get install -y qemu-user-static && \
-    apt-get install -y binfmt-support
+# Install QEMU and binfmt (Essential for multi-arch/emulation support if needed)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends qemu-user-static binfmt-support
 
 # Final cleanup of APT cache
 RUN apt-get clean && \

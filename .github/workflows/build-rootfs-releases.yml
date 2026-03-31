@@ -20,8 +20,8 @@ jobs:
       - name: Find Build Templates
         id: find-templates
         run: |
-          # Find all *.Dockerfile.builder files, extract names, and format as JSON array
-          TEMPLATES=$(ls *.Dockerfile.builder | sed 's/\.Dockerfile\.builder//' | jq -R -s -c 'split("\n")[:-1]')
+          # Find all *.Dockerfile files, extract names, and format as JSON array
+          TEMPLATES=$(ls *.Dockerfile | sed 's/\.Dockerfile//' | jq -R -s -c 'split("\n")[:-1]')
           echo "templates=$TEMPLATES" >> $GITHUB_OUTPUT
           echo "Detected templates: $TEMPLATES"
 
@@ -49,7 +49,7 @@ jobs:
         run: |
           chmod +x build_rootfs.sh
           # The script handles binfmt and buildx setup internally
-          ./build_rootfs.sh -i "${{ matrix.template }}.Dockerfile.builder" -v "${{ needs.setup.outputs.build_id }}"
+          ./build_rootfs.sh -i "${{ matrix.template }}.Dockerfile" -v "${{ needs.setup.outputs.build_id }}"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
