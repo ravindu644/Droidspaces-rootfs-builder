@@ -12,8 +12,8 @@ MESA_LOCAL=""
 PATCH_LOCAL=""
 
 # Use these for URLs (takes priority)
-MESA_URL="https://archive.mesa3d.org/mesa-25.0.7.tar.xz"
-PATCH_URL="https://filebin.net/zklzjos3fdqbxopy/Mesa-25.0.x-patches-wayland-dri3.zip"
+MESA_URL="https://github.com/ravindu644/Droidspaces-rootfs-builder/raw/refs/heads/main/mesa/mesa-25.0.7.tar.xz"
+PATCH_URL="https://github.com/ravindu644/Droidspaces-rootfs-builder/raw/refs/heads/main/mesa/Mesa-25.0.x-patches-wayland-dri3.zip"
 # --------------
 
 if ! command -v apt &>/dev/null; then
