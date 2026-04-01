@@ -36,7 +36,7 @@ jobs:
 
   build:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm64
     strategy:
       fail-fast: false
       matrix:
@@ -47,9 +47,9 @@ jobs:
 
       - name: Build RootFS (${{ matrix.template }})
         run: |
-          chmod +x build_rootfs.sh
-          # The script handles binfmt and buildx setup internally
-          ./build_rootfs.sh -i "${{ matrix.template }}.Dockerfile" -v "${{ needs.setup.outputs.build_id }}"
+          chmod +x build_rootfs-native.sh
+          # Native build without QEMU overhead
+          ./build_rootfs-native.sh -i "${{ matrix.template }}.Dockerfile" -v "${{ needs.setup.outputs.build_id }}"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4

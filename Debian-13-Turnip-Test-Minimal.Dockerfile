@@ -1,6 +1,6 @@
 # Stage 1: Build and customize the rootfs for development (Turnip-Test - Debian 13)
 ARG TARGETPLATFORM
-FROM --platform=${TARGETPLATFORM:-linux/arm64} debian:trixie AS customizer
+FROM debian:trixie AS customizer
 
 ENV DEBIAN_FRONTEND=noninteractive
 
