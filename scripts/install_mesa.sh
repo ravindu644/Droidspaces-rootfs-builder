@@ -93,7 +93,6 @@ if [ "$NEED_UPDATE" = "1" ]; then
 fi
 
 echo "Installing required build tools..."
-# We install these explicitly so they are caught in the 'After' snapshot
 apt-get install -y glslang-tools libxfixes-dev unzip curl wget build-essential meson ninja-build patch git
 apt-get build-dep mesa -y
 
@@ -151,5 +150,45 @@ if ! grep -q 'TU_DEBUG' /etc/environment; then
     echo 'TU_DEBUG=noconform,sysmem' >> /etc/environment
 fi
 
-echo "Mesa installed successfully."
+# Install glxgears + glxinfo BEFORE holding packages
+echo "Installing mesa-utils (glxgears, glxinfo)..."
+apt-get install -y --no-install-recommends mesa-utils
+
+# Reinstall our custom mesa on top (mesa-utils may have overwritten some files)
+echo "Reinstalling custom Mesa over distro mesa-utils..."
+ninja -C build -j$(nproc) install
+
+# Hold all mesa-related packages so apt can never overwrite our custom build
+echo "Holding mesa packages to protect custom Turnip driver..."
+MESA_HOLD_PKGS=(
+    libgl1-mesa-dri
+    libglx-mesa0
+    libgles2-mesa
+    libgles1-mesa
+    libegl-mesa0
+    libgbm1
+    libglapi-mesa
+    mesa-vulkan-drivers
+    mesa-utils
+    mesa-vdpau-drivers
+    mesa-va-drivers
+    libgl1
+    libegl1
+    libgles2
+)
+
+for pkg in "${MESA_HOLD_PKGS[@]}"; do
+    # Only hold if the package is actually installed (skip if not present)
+    if dpkg -l "$pkg" &>/dev/null 2>&1; then
+        apt-mark hold "$pkg"
+        echo "  held: $pkg"
+    fi
+done
+
+echo ""
+echo "Mesa installed and protected successfully."
+echo "The following are now held and cannot be updated/overwritten by apt:"
+apt-mark showhold
+echo ""
+echo "To verify Turnip is active, run: glxinfo | grep 'OpenGL renderer'"
 # The trap 'cleanup' now runs automatically
