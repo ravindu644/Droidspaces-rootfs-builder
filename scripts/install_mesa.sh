@@ -54,6 +54,9 @@ cleanup() {
     if [ -f /etc/apt/sources.list.d/debian.sources.bak ]; then
         mv /etc/apt/sources.list.d/debian.sources.bak /etc/apt/sources.list.d/debian.sources
     fi
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources.bak ]; then
+        mv /etc/apt/sources.list.d/ubuntu.sources.bak /etc/apt/sources.list.d/ubuntu.sources
+    fi
 
     # Clean up any manual tagging in sources.list if it exists
     if [ -f /etc/apt/sources.list ]; then
@@ -67,6 +70,12 @@ cleanup() {
 }
 
 # Record exact package state before doing anything — must be sorted for comm
+# We install glxgears/glxinfo and basic mesa runtime BEFORE the snapshot
+# so they are considered part of the "base system" and NOT purged in cleanup.
+echo "Installing mesa-utils and runtime dependencies..."
+apt-get update -qq
+apt-get install -y --no-install-recommends mesa-utils libgl1 libegl1 libgles2 libgbm1 libglx-mesa0 libgl1-mesa-dri
+
 dpkg --get-selections | awk '$2=="install"{print $1}' | sort > "$BEFORE_PKGS"
 
 echo "Configuring sources..."
@@ -84,6 +93,16 @@ if [ -f /etc/apt/sources.list.d/debian.sources ]; then
     cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak
     if ! grep -q "deb-src" /etc/apt/sources.list.d/debian.sources; then
         sed -i '/Types: deb/s/$/ deb-src/' /etc/apt/sources.list.d/debian.sources
+        NEED_UPDATE=1
+    fi
+fi
+
+# Handle DEB822 ubuntu.sources (Ubuntu 24.04+)
+if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+    cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+    if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
+        # Ubuntu often has multiple stanzas, we want to add deb-src to the 'deb' types
+        sed -i '/Types: deb/s/$/ deb-src/' /etc/apt/sources.list.d/ubuntu.sources
         NEED_UPDATE=1
     fi
 fi
@@ -150,12 +169,8 @@ if ! grep -q 'TU_DEBUG' /etc/environment; then
     echo 'TU_DEBUG=noconform,sysmem' >> /etc/environment
 fi
 
-# Install glxgears + glxinfo BEFORE holding packages
-echo "Installing mesa-utils (glxgears, glxinfo)..."
-apt-get install -y --no-install-recommends mesa-utils
-
-# Reinstall our custom mesa on top (mesa-utils may have overwritten some files)
-echo "Reinstalling custom Mesa over distro mesa-utils..."
+# Reinstall our custom mesa on top (distro packages may have overwritten some files)
+echo "Reinstalling custom Mesa over distro packages..."
 ninja -C build -j$(nproc) install
 
 # Hold all mesa-related packages so apt can never overwrite our custom build
@@ -167,7 +182,7 @@ MESA_HOLD_PKGS=(
     libgles1-mesa
     libegl-mesa0
     libgbm1
-    libglapi-mesa
+    mesa-libgallium
     mesa-vulkan-drivers
     mesa-utils
     mesa-vdpau-drivers
