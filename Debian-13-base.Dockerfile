@@ -9,6 +9,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN (sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list 2>/dev/null || sed -i 's/Components: main/Components: main contrib non-free/g' /etc/apt/sources.list.d/debian.sources) && \
     apt-get update && apt-get upgrade -y
 
+# Install Custom Mesa (Turnip) before anything else
+COPY scripts/install_mesa.sh /tmp/install_mesa.sh
+RUN chmod +x /tmp/install_mesa.sh && /tmp/install_mesa.sh && rm /tmp/install_mesa.sh
+
 # Copy custom scripts first
 COPY scripts/download-firmware /usr/local/bin/
 

@@ -5,6 +5,7 @@
 # Configuration
 : "${VERSION:=dev}"
 DATE=$(date +%Y%m%d)
+ARCH=$(uname -m)
 
 # Parse arguments
 while getopts "i:v:" opt; do
@@ -54,7 +55,7 @@ set -e
 
 # 3. Core Build Process
 TEMP_TAR="custom-${PREFIX}-rootfs.tar"
-FINAL_NAME="${PREFIX}-Droidspaces-rootfs-${DATE}-${VERSION}.tar.gz"
+FINAL_NAME="${PREFIX}-Droidspaces-rootfs-${ARCH}-${DATE}-${VERSION}.tar.gz"
 
 echo "Running Docker Build (Native)..."
 docker buildx build \

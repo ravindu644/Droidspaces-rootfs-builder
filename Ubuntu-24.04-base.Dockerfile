@@ -8,6 +8,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Update base system
 RUN apt-get update && apt-get upgrade -y
 
+# Install Custom Mesa (Turnip) before anything else
+COPY scripts/install_mesa.sh /tmp/install_mesa.sh
+RUN chmod +x /tmp/install_mesa.sh && /tmp/install_mesa.sh && rm /tmp/install_mesa.sh
+
 # Copy custom scripts first
 COPY scripts/download-firmware /usr/local/bin/
 
