@@ -63,6 +63,14 @@ cleanup() {
         sed -i '/#MESA_TEMP_SRC/d' /etc/apt/sources.list
     fi
 
+    # Clean up any DEB822 mess if we modified it
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+        sed -i 's/ deb-src//' /etc/apt/sources.list.d/ubuntu.sources
+    fi
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then
+        sed -i 's/ deb-src//' /etc/apt/sources.list.d/debian.sources
+    fi
+
     rm -rf "$WORK_DIR"
     rm -f "$BEFORE_PKGS" "$AFTER_PKGS"
     apt-get update -qq
@@ -78,6 +86,14 @@ apt-get install -y --no-install-recommends mesa-utils libgl1 libegl1 libgles2 li
 
 dpkg --get-selections | awk '$2=="install"{print $1}' | sort > "$BEFORE_PKGS"
 
+# Distro detection
+ID=""
+if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
+fi
+echo "Detected distro: $ID"
+
 echo "Configuring sources..."
 # Handle traditional sources.list
 if [ -f /etc/apt/sources.list ]; then
@@ -88,21 +104,21 @@ if [ -f /etc/apt/sources.list ]; then
     fi
 fi
 
-# Handle DEB822 debian.sources (Debian 13+)
-if [ -f /etc/apt/sources.list.d/debian.sources ]; then
-    cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak
-    if ! grep -q "deb-src" /etc/apt/sources.list.d/debian.sources; then
-        sed -i '/Types: deb/s/$/ deb-src/' /etc/apt/sources.list.d/debian.sources
+# Handle DEB822 ubuntu.sources (Ubuntu 24.04+)
+if [ "$ID" = "ubuntu" ] && [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+    cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
+    if ! grep -v '^#' /etc/apt/sources.list.d/ubuntu.sources | grep -q "deb-src"; then
+        # Add deb-src to the 'deb' types line
+        sed -i '/^Types:.*deb/s/$/ deb-src/' /etc/apt/sources.list.d/ubuntu.sources
         NEED_UPDATE=1
     fi
 fi
 
-# Handle DEB822 ubuntu.sources (Ubuntu 24.04+)
-if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-    cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources.bak
-    if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
-        # Ubuntu often has multiple stanzas, we want to add deb-src to the 'deb' types
-        sed -i '/Types: deb/s/$/ deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+# Handle DEB822 debian.sources (Debian 13+)
+if [ "$ID" = "debian" ] && [ -f /etc/apt/sources.list.d/debian.sources ]; then
+    cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak
+    if ! grep -v '^#' /etc/apt/sources.list.d/debian.sources | grep -q "deb-src"; then
+        sed -i '/^Types:.*deb/s/$/ deb-src/' /etc/apt/sources.list.d/debian.sources
         NEED_UPDATE=1
     fi
 fi
