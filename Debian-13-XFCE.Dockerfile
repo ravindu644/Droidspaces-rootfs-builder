@@ -27,6 +27,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     # Core utilities
     bash \
+    dialog \
     coreutils \
     file \
     findutils \
