@@ -204,6 +204,22 @@ cat <<EOT > /etc/systemd/resolved.conf.d/dns.conf
 DNSStubListener=no
 EOT
 
+# Android network group setup (required for socket access on Android kernels)
+grep -q '^aid_inet:' /etc/group    || echo 'aid_inet:x:3003:'    >> /etc/group
+grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group
+grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group
+
+# Root gets network access
+usermod -a -G aid_inet,aid_net_raw root
+
+# _apt needs aid_inet as primary group so apt works
+grep -q '^_apt:' /etc/passwd && usermod -g aid_inet _apt || true
+
+# Future users created with adduser automatically get network access
+sed -i '/^EXTRA_GROUPS=/d; /^ADD_EXTRA_GROUPS=/d' /etc/adduser.conf
+echo 'ADD_EXTRA_GROUPS=1'               >> /etc/adduser.conf
+echo 'EXTRA_GROUPS="aid_inet aid_net_raw"' >> /etc/adduser.conf
+
 # Enable systemd-resolved and systemd-networkd
 mkdir -p /etc/systemd/system/multi-user.target.wants
 ln -sf /lib/systemd/system/systemd-resolved.service /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
