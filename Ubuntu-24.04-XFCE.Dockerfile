@@ -303,6 +303,28 @@ RUN gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true && \
     gtk-update-icon-cache -f /usr/share/icons/Tango 2>/dev/null || true && \
     fc-cache -fv
 
+# Fix xfwm4 vblank_mode for Turnip (Qualcomm GPU) - prevents XFCE compositor hang
+# The sed fix 's/vblank_mode=auto/vblank_mode=off/' does NOT work on the XML format
+# (the file uses value="auto" as an XML attribute, not a bare key=value pair).
+# Instead we pre-place the complete xfwm4.xml with the correct value already set.
+# xfconf will not regenerate the file if it already exists, so this is reliable.
+#
+# Coverage:
+#   /etc/skel  → copied verbatim into every new user's $HOME by adduser
+#   /root      → root's home is never seeded from /etc/skel, so patch it directly
+#   /usr/share/xfwm4/defaults → xfwm4's key=value seed file, read before xfconf
+COPY scripts/xfwm4.xml /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+COPY scripts/xfwm4.xml /root/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+
+# /usr/share/xfwm4/defaults - key=value seed file xfwm4 reads before xfconf
+RUN if [ -f /usr/share/xfwm4/defaults ]; then \
+    if grep -q '^vblank_mode=' /usr/share/xfwm4/defaults; then \
+        sed -i 's/^vblank_mode=.*/vblank_mode=off/' /usr/share/xfwm4/defaults; \
+    else \
+        echo 'vblank_mode=off' >> /usr/share/xfwm4/defaults; \
+    fi; \
+fi
+
 # Purge and reinstall qemu and binfmt in the exact order specified
 RUN apt-get purge -y qemu-* binfmt-support && \
     apt-get autoremove -y && \
