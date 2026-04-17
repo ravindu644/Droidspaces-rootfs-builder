@@ -147,6 +147,8 @@ RUN apt-get update && \
     xorg \
     xserver-xorg-core \
     xterm \
+    xserver-xorg-video-fbdev \
+    xserver-xorg-input-libinput \
     dbus-x11 \
     dbus \
     at-spi2-core \
@@ -266,6 +268,30 @@ minimum-vt=7
 [Seat:*]
 xserver-command=X -vt7
 EOT
+
+# Configure Xorg to catch input events via libinput
+mkdir -p /etc/X11/xorg.conf.d
+cat <<EOT > /etc/X11/xorg.conf.d/99-input.conf
+Section "InputClass"
+    Identifier "libinput pointer catchall"
+    MatchIsPointer "on"
+    MatchDevicePath "/dev/input/event*"
+    Driver "libinput"
+EndSection
+
+Section "InputClass"
+    Identifier "libinput keyboard catchall"
+    MatchIsKeyboard "on"
+    MatchDevicePath "/dev/input/event*"
+    Driver "libinput"
+EndSection
+EOT
+
+# Add systemd overrides for udev services to prevent failure when paths are read-only
+for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-settle.service systemd-udevd-kernel.socket systemd-udevd-control.socket; do \
+  mkdir -p /etc/systemd/system/\$unit.d; \
+  printf "[Unit]\nConditionPathIsReadWrite=\n" > /etc/systemd/system/\$unit.d/override.conf; \
+done
 EOF
 
 # Update icon and font caches in a final setup layer
