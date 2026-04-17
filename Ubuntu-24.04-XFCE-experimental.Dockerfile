@@ -228,8 +228,8 @@ grep -q '^aid_inet:' /etc/group    || echo 'aid_inet:x:3003:'    >> /etc/group
 grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group
 grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group
 
-# Root gets network access
-usermod -a -G aid_inet,aid_net_raw root
+# Root gets required permissions for networking, input, and display
+usermod -a -G aid_inet,aid_net_raw,input,video,tty root
 
 # _apt needs aid_inet as primary group so apt works
 grep -q '^_apt:' /etc/passwd && usermod -g aid_inet _apt || true
@@ -237,7 +237,7 @@ grep -q '^_apt:' /etc/passwd && usermod -g aid_inet _apt || true
 # Future users created with adduser automatically get network access
 sed -i '/^EXTRA_GROUPS=/d; /^ADD_EXTRA_GROUPS=/d' /etc/adduser.conf
 echo 'ADD_EXTRA_GROUPS=1'               >> /etc/adduser.conf
-echo 'EXTRA_GROUPS="aid_inet aid_net_raw"' >> /etc/adduser.conf
+echo 'EXTRA_GROUPS="aid_inet aid_net_raw input video tty"' >> /etc/adduser.conf
 
 # Mask systemd-journald-audit.socket to prevent deadlocks on Android kernels
 ln -sf /dev/null /etc/systemd/system/systemd-journald-audit.socket
@@ -250,10 +250,22 @@ Audit=no
 Storage=volatile
 EOT
 
-# Enable systemd-resolved and systemd-networkd
+# Enable essential services (dbus, udev, network, resolved)
 mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sf /lib/systemd/system/dbus.service /etc/systemd/system/multi-user.target.wants/dbus.service
+ln -sf /lib/systemd/system/systemd-udevd.service /etc/systemd/system/multi-user.target.wants/systemd-udevd.service
 ln -sf /lib/systemd/system/systemd-resolved.service /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
 ln -sf /lib/systemd/system/systemd-networkd.service /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+
+# Force LightDM to use VT7
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat <<EOT > /etc/lightdm/lightdm.conf.d/90-force-vt.conf
+[LightDM]
+minimum-vt=7
+
+[Seat:*]
+xserver-command=X -vt7
+EOT
 EOF
 
 # Update icon and font caches in a final setup layer
