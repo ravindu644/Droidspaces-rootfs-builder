@@ -295,8 +295,8 @@ EOT
 
 # Add systemd overrides for udev services to prevent failure when paths are read-only
 for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-settle.service systemd-udevd-kernel.socket systemd-udevd-control.socket; do \
-  mkdir -p /etc/systemd/system/\$unit.d; \
-  printf "[Unit]\nConditionPathIsReadWrite=\n" > /etc/systemd/system/\$unit.d/override.conf; \
+  mkdir -p /etc/systemd/system/${unit}.d; \
+  printf "[Unit]\nConditionPathIsReadWrite=\n" > /etc/systemd/system/${unit}.d/override.conf; \
 done
 
 # logind - ignore power key, xfce4-power-manager takes over via inhibitor lock
