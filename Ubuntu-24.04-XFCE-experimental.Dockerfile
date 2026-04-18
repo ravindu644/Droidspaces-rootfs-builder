@@ -292,6 +292,13 @@ for unit in systemd-udevd.service systemd-udev-trigger.service systemd-udev-sett
   mkdir -p /etc/systemd/system/\$unit.d; \
   printf "[Unit]\nConditionPathIsReadWrite=\n" > /etc/systemd/system/\$unit.d/override.conf; \
 done
+
+# Configure systemd-logind power key behavior
+mkdir -p /etc/systemd/logind.conf.d
+cat <<EOT > /etc/systemd/logind.conf.d/99-power-key.conf
+[Login]
+HandlePowerKey=suspend
+EOT
 EOF
 
 # Update icon and font caches in a final setup layer
